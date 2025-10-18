@@ -1,0 +1,124 @@
+---
+title: "PM 566 Lab 7"
+author: "Ziquan 'Harrison' Liu"
+format: 
+  html:
+    embed-resources: true
+fig-width: 8
+fig-heigth: 6
+---
+# Requried Package
+```{r}
+library(httr)
+library(xml2)
+library(stringr)
+library(rvest)
+```
+
+# Question 1.
+```{r}
+# Downloading the website
+website <- xml2::read_html("https://pubmed.ncbi.nlm.nih.gov/?term=sars-cov-2")
+# Finding the counts
+counts <- xml2::xml_find_first(website, "/html/body/main/div[9]/div[2]/div[2]/div[1]/div[1]/h3/span")
+# Turning it into text
+counts <- as.character(counts)
+# Extracting the data using regex (matches numbers with commas)
+totalcount <- stringr::str_extract(counts, "[0-9,.]+")
+# Removing commas so we can convert to numeric
+totalcount <- gsub(",", "", totalcount)
+totalcount <- as.numeric(totalcount)
+print(totalcount)
+```
+## Bassed on the result above, there are 263555 Sars-Cov-2 papers. 
+
+# Question 2.
+```{r}
+# read in text, each line is a separate character
+abstracts <- readLines('/Users/ldh/Library/Mobile Documents/com~apple~CloudDocs/USC PhD/STUDY DOCUMENTS/Fall 2025/PM 566/PM566labs/Lab 7/PM-566-Lab-7/abstract-sars-cov-2-set.txt', warn = FALSE)
+# combine all text into one character
+abstracts <- paste(abstracts, collapse = '\n')
+# split the text whenever 3 new lines occur in a row (indicating two blank lines)
+abstracts <- unlist(strsplit(abstracts, split = '\n\n\n'))
+# replace any remaining "\n" symbols with spaces
+abstracts <- gsub("\n", " ", abstracts)
+# replace multiple spaces with single space
+abstracts <- gsub(" +", " ", abstracts)
+```
+## 
+
+# Question 3.
+```{r}
+# One compact pattern for:
+## "University of ...", optionally "of the ..."
+## "... University"
+## "... Institute of ...", optionally "of the ..."
+pattern <- "\\b(?:University\\s+of\\s+(?:the\\s+)?[A-Z][\\w'&.-]+(?:\\s+[A-Z][\\w'&.-]+)*|[A-Z][\\w'&.-]+(?:\\s+[A-Z][\\w'&.-]+)*\\s+University|[A-Z][\\w'&.-]+(?:\\s+[A-Z][\\w'&.-]+)*\\s+Institute\\s+of\\s+(?:the\\s+)?[A-Z][\\w'&.-]+(?:\\s+[A-Z][\\w'&.-]+)*)\\b"
+
+institution <- str_extract_all(abstracts, pattern)  # extract matches
+institution <- unlist(institution)                  # flatten
+institution <- stringr::str_squish(institution)     # trim & compress spaces
+
+# Frequency (top 20)
+head(sort(table(institution), decreasing = TRUE), 20)
+
+```
+## Based on the result above, the 10 most common institutions the reason I run 20 because there are too many universities in the UC systems.
+
+# Question 4.
+```{r}
+# read in text, each line is a separate character
+abstracts <- readLines('/Users/ldh/Library/Mobile Documents/com~apple~CloudDocs/USC PhD/STUDY DOCUMENTS/Fall 2025/PM 566/PM566labs/Lab 7/PM-566-Lab-7/abstract-sars-cov-2-set.txt', warn = FALSE)
+# combine all text into one character
+abstracts <- paste(abstracts, collapse = '\n')
+# split the text whenever 3 new lines occur in a row (indicating two blank lines)
+abstracts <- unlist(strsplit(abstracts, split = '\n\n\n'))
+```
+```{r}
+journal <- str_match(
+  abstracts,
+  regex("(?m)^\\s*\\d+\\.\\s*([^\\n]+)")
+)[, 2]
+
+journal <- str_squish(journal)
+```
+```{r}
+titles <- sapply(abstracts, function(x){
+  parts <- unlist(strsplit(x, split = "\n\n+"))
+  parts <- parts[nzchar(trimws(parts))]
+  if (length(parts) >= 2) parts[2] else NA_character_
+}, USE.NAMES = FALSE)
+titles <- gsub("\\n+", " ", titles)
+titles <- str_squish(titles)
+```
+```{r}
+authors <- sapply(abstracts, function(x){
+  parts <- unlist(strsplit(x, split = "\n\n+"))
+  parts <- parts[nzchar(trimws(parts))]
+  if (length(parts) >= 3) parts[3] else NA_character_
+}, USE.NAMES = FALSE)
+authors <- gsub("\\n+", " ", authors)
+authors <- str_squish(authors)
+```
+```{r}
+affiliations <- str_extract(
+  abstracts,
+  regex("\\n\\nAuthor information:.*?(?=\\n\\n|\\Z)", dotall = TRUE)
+)
+#
+affiliations <- str_replace(affiliations, "^\\s*\\n?\\n?Author information:\\s*", "")
+affiliations <- str_squish(affiliations)
+
+```
+```{r}
+papers <- data.frame(
+  journal = journal,
+  title   = titles,
+  authors = authors,
+  affiliations = affiliations,
+  stringsAsFactors = FALSE
+)
+
+knitr::kable(papers[1:5, ])
+```
+## Above is my result of this question.
